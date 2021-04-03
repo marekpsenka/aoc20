@@ -1,0 +1,56 @@
+{-# START_FILE {{name}}.cabal #-}
+name:                {{name}}
+version:             0.1.0.0
+-- synopsis:
+-- description:
+author:              {{author-name}}{{^author-name}}Author name here{{/author-name}}
+build-type:          Simple
+cabal-version:       >=1.10
+
+executable {{name}}
+  hs-source-dirs:      .
+  main-is:             {{name}}.hs
+  default-language:    Haskell2010
+  build-depends:       base >= 4.7 && < 5
+
+{-# START_FILE .vscode/tasks.json #-}
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "stack build",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "run",
+            "type": "shell",
+            "command": "stack run < input.txt",
+            "problemMatcher": []
+        },
+        {
+            "label": "ghci",
+            "type": "shell",
+            "command": "stack ghci",
+            "problemMatcher": []
+        }
+    ]
+}
+
+{-# START_FILE .vscode/settings.json #-}
+{
+    "cmake.configureOnOpen": false
+}
+
+{-# START_FILE {{name}}.hs #-}
+main :: IO ()
+main = do
+  inpt <- getContents
+  putStrLn inpt
+
+{-# START_FILE input.txt #-}
