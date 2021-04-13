@@ -1,12 +1,15 @@
 import Data.Char
-import Data.List.Split
+import Data.List
+import Data.List.Split ( splitOn, startsWith )
+import qualified Data.Map as Map
+import Data.Maybe
 
 data Rule = Rule { field :: String
                  , lmin :: Int
                  , lmax :: Int
                  , umin :: Int
                  , umax :: Int
-                 } deriving (Show)
+                 } deriving (Show, Eq, Ord)
 
 type Ticket = [Int]
 
@@ -43,6 +46,29 @@ invalidFieldsSum :: Ticket -> [Rule] -> Int
 invalidFieldsSum t rs = sum invalid
   where
     invalid = filter (\i -> not (any (isValidAgainst i) rs)) t
+
+isValid :: [Rule] -> Ticket -> Bool
+isValid rs = all (\i -> any (isValidAgainst i) rs)
+
+findEnds :: Map.Map Rule Int -> [[Rule]] -> [(Rule, Int)]
+findEnds explained rs  = map (\(mr, i) -> (fromJust mr, i)) a
+  where
+    a = filter (isJust . fst) (zip (map (checkEnd explained) rs) [0..])
+    checkEnd :: Map.Map Rule Int -> [Rule] -> Maybe Rule
+    checkEnd explained cnds = f (filter (not . \k -> Map.member k explained) cnds)
+      where
+        f [x] = Just x
+        f _ = Nothing
+
+unknot :: [[Rule]] -> Map.Map Rule Int
+unknot rs = unknot' rs Map.empty
+  where
+    unknot' :: [[Rule]] -> Map.Map Rule Int -> Map.Map Rule Int
+    unknot' rs explained = 
+      if Map.size explained == length rs 
+        then explained
+        else unknot' rs (foldl (\m (r, i) -> Map.insert r i m) explained (findEnds explained rs)) 
+      
   
 main :: IO ()
 main = do
@@ -55,4 +81,9 @@ main = do
   _:ts <- lines <$> getContents 
   let tickets = map readTicket ts
 
-  print (sum $ map (\t -> invalidFieldsSum t rules) tickets)
+  let valid = filter (isValid rules) tickets
+      candidates = map (\col -> filter (\rule -> all (`isValidAgainst` rule) col) rules) (transpose valid)
+      fieldIndices = map snd (filter (isPrefixOf "departure" . field . fst) (Map.toList (unknot candidates)))
+
+  print (sum $ map (`invalidFieldsSum` rules) tickets)
+  print (product (map (myticket !!) fieldIndices))
