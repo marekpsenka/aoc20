@@ -34,6 +34,12 @@ executable {{name}}
             "problemMatcher": []
         },
         {
+            "label": "test_run",
+            "type": "shell",
+            "command": "stack run < test_input.txt",
+            "problemMatcher": []
+        },
+        {
             "label": "ghci",
             "type": "shell",
             "command": "stack ghci",
@@ -54,3 +60,4 @@ main = do
   putStrLn inpt
 
 {-# START_FILE input.txt #-}
+{-# START_FILE test_input.txt #-}
