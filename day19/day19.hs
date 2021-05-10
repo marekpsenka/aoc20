@@ -38,7 +38,7 @@ buildParser :: [Rule] -> Rule -> CharParser st String
 buildParser rs r =
   case r of
     Single c -> count 1 (char c)
-    Seq rrs -> msum $ map (buildParser rs . (rs !!)) rrs
+    Seq rrs -> concat <$> mapM (buildParser rs . (rs !!)) rrs
     Alt r1 r2 -> try (buildParser rs r1) <|> buildParser rs r2
 
 main :: IO ()
@@ -49,8 +49,7 @@ main = do
     messages = tail _messages
     parsedRules = fromRight [] (mapM (parse rule "") rules)
     sortedRules = map snd (sortOn fst parsedRules)
-    p = buildParser sortedRules (head sortedRules)
+    p = buildParser sortedRules (head sortedRules) <* eof
 
-  print (parse p "" (messages !! 1))
-  print (parse (msum [char 'a', char 'b', char 'c']) "" "abc")
+  print (length $ filter isRight (map (parse p "") messages))
 
