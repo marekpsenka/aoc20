@@ -1,11 +1,27 @@
 import Text.Parsec
 import Text.ParserCombinators.Parsec.Char
-import qualified Data.Array as A
 import Data.Either
+import Data.List
+import qualified Data.Map as Map
+import Data.Maybe
 
-type TileData = A.Array (Int, Int) Char
+type TileData = [String]
+type TileMap = Map.Map Int TileData
+data Orientation = Ori Int Bool deriving(Show)
+type ConnectivityMap = Map.Map Int [(Int, Orientation, Orientation)]
 
-data Tile = Tile{num :: Int, dat :: TileData} deriving(Show)
+orient :: TileData -> Orientation -> TileData
+orient td (Ori rots flipped)
+  | flipped = map reverse rotated
+  | otherwise = rotated
+  where
+    rotated = iterate (transpose . reverse) td !! rots
+
+rightEdge :: TileData -> String
+rightEdge = map last
+
+leftEdge :: TileData -> String
+leftEdge = map head
 
 natural :: CharParser st Int
 natural = (read :: String -> Int) <$> many1 digit
@@ -13,18 +29,32 @@ natural = (read :: String -> Int) <$> many1 digit
 tileNumber :: CharParser st Int
 tileNumber = string "Tile " *> natural <* (char ':' >> newline)
 
-index :: [[a]] -> [[((Int, Int), a)]]
-index = zipWith zip idx
+match :: TileData -> TileData -> [(Orientation, Orientation)]
+match t1 t2 = filter leftRightAgree orientations
   where
-    idx = [[(i, j) | i <- [1..]] | j <- [1..]]
+    orientations = [(Ori r1 f1, Ori r2 f2) | r1 <- [0..3], f1 <- [True, False], r2 <- [0..3], f2 <- [True, False]]
+    leftRightAgree (o1, o2) = rightEdge (orient t1 o1) == leftEdge (orient t2 o2)
 
-tile :: CharParser st Tile
+
+tile :: CharParser st (Int, TileData)
 tile = do tn <- tileNumber
           rows <- sepEndBy (many1 (oneOf ['#', '.'])) newline
-          return Tile{
-            num = tn, 
-            dat = A.array ((1, 1), (length (head rows), length rows)) (concat (index rows))
-          }
+          return (tn, rows)
+
+uniquePairs :: [a] -> [(a, a)]
+uniquePairs x = [(y, z) | (y:ys) <- tails x, z <- ys]
+
+connect :: TileMap -> ConnectivityMap
+connect m = foldl f Map.empty (uniquePairs (Map.keys m))
+  where 
+    f :: ConnectivityMap -> (Int, Int) -> ConnectivityMap
+    f n (tn1, tn2) = Map.insertWith (++) tn2 e2 (Map.insertWith (++) tn1 e1 n)
+      where
+        td1 = fromJust $ Map.lookup tn1 m
+        td2 = fromJust $ Map.lookup tn2 m
+        os = match td1 td2
+        e1 = map (\(x, y) -> (tn2, x, y)) os
+        e2 = map (\(x, y) -> (tn1, y, x)) os
 
 
 main :: IO ()
@@ -32,5 +62,9 @@ main = do
   inpt <- getContents
   let
     tiles = fromRight [] (parse (sepBy1 tile newline <* eof) "" inpt)
+    tileMap = foldl (\m (num, dat) -> Map.insert num dat m) Map.empty tiles
+    connected = connect tileMap
   print (length tiles)
+  print (product (map fst (filter ((4==) . length . snd) (Map.assocs connected))))
+  print connected
 
