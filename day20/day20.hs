@@ -5,6 +5,7 @@ import Data.List
 import qualified Data.Map as Map
 import Data.Maybe
 import Data.Bifunctor
+import Control.Monad
 
 type TileData = [String]
 type TileMap = Map.Map Int TileData
@@ -55,13 +56,18 @@ connect m = foldl f Map.empty (uniquePairs (Map.keys m))
         td2 = fromJust $ Map.lookup tn2 m
         os = match td1 td2
         e1 = map (\(x, y) -> (tn2, x, y)) os
-        e2 = map ((\(x, y) -> (tn1, y, x)) . bimap (prod (Ori 2 False)) (prod (Ori 2 False))) os
-
-complement :: Orientation -> Orientation -> Orientation
-complement (Ori r1 f1) (Ori r2 f2) = Ori ((4 - r1 + r2) `mod` 4) (f1 /= f2)
+        e2 = map ((\(x, y) -> (tn1, y, x)) . bimap applyTwoRotations applyTwoRotations) os
 
 prod :: Orientation -> Orientation -> Orientation
 prod (Ori r1 f1) (Ori r2 f2) = Ori ((r1 + r2) `mod` 4) (f1 /= f2)
+
+applyRotation :: Orientation -> Orientation
+applyRotation (Ori r f) = 
+  if f then Ori ((4 + (r - 1)) `mod` 4) f else Ori ((r + 1) `mod` 4) f
+
+applyTwoRotations :: Orientation -> Orientation
+applyTwoRotations (Ori r f) = 
+  if f then Ori ((4 + (r - 2)) `mod` 4) f else Ori ((r + 2) `mod` 4) f
 
 link :: (Int, Orientation) -> ConnectivityMap -> [(Int, Orientation)]
 link (t, o) m =
@@ -71,6 +77,22 @@ link (t, o) m =
     Just (nt, _, no) -> (t, o):link (nt, no) m
   where
     conn = fromJust $ Map.lookup t m
+
+glueTiles :: [[TileData]] -> [String]
+glueTiles = concatMap glueRow
+  where
+    glueRow :: [TileData] -> [String]
+    glueRow [] = []
+    glueRow ds = foldl (zipWith (++)) (replicate (length (head ds)) []) ds
+
+printTile :: [String] -> IO ()
+printTile t = forM_ t putStrLn
+
+assembleTiles :: [[(Int, Orientation)]] -> TileMap -> [[TileData]]
+assembleTiles ts m = map (map (\(n,  o) -> orient (dropBorder $ fromJust (Map.lookup n m)) o)) ts
+  where
+    dropBorder :: [String] -> [String]
+    dropBorder ss = (init . tail) (map (init . tail) ss)
 
 main :: IO ()
 main = do
@@ -86,12 +108,11 @@ main = do
         [(_, Ori r1 f1, _), (_, Ori r2 f2, _)] = filter (\(_, Ori r f, _) -> not f) cs
         minOri = if r1 == (r2 + 1) `mod` 4 then Ori r2 False else Ori r1 False
       in
-        (t, complement minOri (Ori 0 False))
+        (t, minOri)
 
-    startsOfRows = map (second (prod (Ori 1 False))) (link startTile connected)
+    startsOfRows = map (second applyRotation) (link startTile connected)
     grid = map (`link` connected) startsOfRows
-
+    assembled = assembleTiles grid tileMap
+    image = glueTiles assembled
 
   print (product (map fst cornerTileConnections))
-  print grid
-
