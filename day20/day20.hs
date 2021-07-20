@@ -58,9 +58,6 @@ connect m = foldl f Map.empty (uniquePairs (Map.keys m))
         e1 = map (\(x, y) -> (tn2, x, y)) os
         e2 = map ((\(x, y) -> (tn1, y, x)) . bimap applyTwoRotations applyTwoRotations) os
 
-prod :: Orientation -> Orientation -> Orientation
-prod (Ori r1 f1) (Ori r2 f2) = Ori ((r1 + r2) `mod` 4) (f1 /= f2)
-
 applyRotation :: Orientation -> Orientation
 applyRotation (Ori r f) = 
   if f then Ori ((4 + (r - 1)) `mod` 4) f else Ori ((r + 1) `mod` 4) f
@@ -94,6 +91,31 @@ assembleTiles ts m = map (map (\(n,  o) -> orient (dropBorder $ fromJust (Map.lo
     dropBorder :: [String] -> [String]
     dropBorder ss = (init . tail) (map (init . tail) ss)
 
+isSeaMonster :: [String] -> (Int, Int) -> Bool
+isSeaMonster img (x, y) = 
+  (img !! y) !! (x + 18) == '#' && 
+  (img !! (y + 1)) !! x == '#' && 
+  (img !! (y + 1)) !! (x + 5) == '#' && 
+  (img !! (y + 1)) !! (x + 6) == '#' && 
+  (img !! (y + 1)) !! (x + 11) == '#' && 
+  (img !! (y + 1)) !! (x + 12) == '#' && 
+  (img !! (y + 1)) !! (x + 17) == '#' && 
+  (img !! (y + 1)) !! (x + 18) == '#' && 
+  (img !! (y + 1)) !! (x + 19) == '#' && 
+  (img !! (y + 2)) !! (x + 1) == '#' && 
+  (img !! (y + 2)) !! (x + 4) == '#' && 
+  (img !! (y + 2)) !! (x + 7) == '#' && 
+  (img !! (y + 2)) !! (x + 10) == '#' && 
+  (img !! (y + 2)) !! (x + 13) == '#' && 
+  (img !! (y + 2)) !! (x + 16) == '#'
+
+countMonsters :: [String] -> Int
+countMonsters img = 
+  length (filter (isSeaMonster img) [(x, y) | x <- [0..(width - 20)], y <- [0..(height - 3)]])
+  where
+    width = length (head img)
+    height = length img
+
 main :: IO ()
 main = do
   inpt <- getContents
@@ -114,5 +136,8 @@ main = do
     grid = map (`link` connected) startsOfRows
     assembled = assembleTiles grid tileMap
     image = glueTiles assembled
+    numberOfMonsters = fromJust $ find (>0) [countMonsters (orient image (Ori r f)) | r <- [0..3], f <- [False, True]]
+    roughness = sum (map (length . filter (=='#')) image)
 
   print (product (map fst cornerTileConnections))
+  print (roughness - 15 * numberOfMonsters)
